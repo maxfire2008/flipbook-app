@@ -1,3 +1,4 @@
+import os
 import flask
 import flask_wtf
 import flask_wtf.file
@@ -5,11 +6,18 @@ import wtforms
 import wtforms.validators
 
 app = flask.Flask(__name__)
+app.secret_key = os.urandom(128)
 app.jinja_env.autoescape = False
 
 
-class SubmitForm(flask_wtf.FlaskForm):
-    file = flask_wtf.file.FileField("File", validators=[flask_wtf.file.FileRequired()])
+class NewJobForm(flask_wtf.FlaskForm):
+    file = flask_wtf.file.FileField(
+        "File",
+        validators=[
+            flask_wtf.file.FileRequired(),
+            flask_wtf.file.FileSize(max_size=1024**3 * 500),
+        ],
+    )
     page_width = wtforms.IntegerField("Page Width", default=210)
     page_height = wtforms.IntegerField("Page Height", default=297)
     grid_width = wtforms.IntegerField("Grid Width", default=2)
@@ -23,10 +31,8 @@ class SubmitForm(flask_wtf.FlaskForm):
     font_family = wtforms.StringField("Font Family", default="Times")
     font_style = wtforms.StringField("Font Style", default="")
     font_size = wtforms.IntegerField("Font Size", default=8)
-    frame_number_x_offset = wtforms.IntegerField(
-        "Frame Number X Offset", default=-(10 * 0.9)
-    )
-    frame_number_y_offset = wtforms.IntegerField("Frame Number Y Offset", default=30)
+    frame_number_x_offset = wtforms.IntegerField("Frame Number X Offset †", default="")
+    frame_number_y_offset = wtforms.IntegerField("Frame Number Y Offset †", default="")
     frame_order = wtforms.SelectField(
         "Frame Order",
         choices=[
@@ -39,5 +45,10 @@ class SubmitForm(flask_wtf.FlaskForm):
 
 
 @app.route("/")
-def submit():
-    return flask.render_template("submit.html")
+def new_job():
+    return flask.render_template("new_job.html.j2", form=NewJobForm())
+
+
+@app.route("/submit", methods=["POST"])
+def submit_job():
+    pass
