@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Home</title>
+    </head>
+    <body>
+        {% block body %}{% endblock %}
+        <small>Your current authorization belongs to {{ authorization_domain }} and expires at {{ authorization_expires }}.</small>
+    </body>
+</html>
