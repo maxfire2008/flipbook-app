@@ -1,4 +1,5 @@
 import os
+import uuid
 
 import flask
 import flask_wtf
@@ -28,16 +29,16 @@ PDF_STORE.mkdir(exist_ok=True)
 
 class UploadFileForm(flask_wtf.FlaskForm):
     file = flask_wtf.file.FileField(
-        "File (max. 200 MB)",
+        "File (max. 200 MiB)",
         validators=[
             flask_wtf.file.FileRequired(),
-            flask_wtf.file.FileSize(max_size=1024**3 * 200),
+            flask_wtf.file.FileSize(max_size=1024**2 * 200),
         ],
     )
 
 
 class NewJobForm(flask_wtf.FlaskForm):
-    file_id = wtforms.HiddenField("File ID")
+    video_id = wtforms.HiddenField("")
     page_width = wtforms.IntegerField("Page Width", default=210)
     page_height = wtforms.IntegerField("Page Height", default=297)
     grid_width = wtforms.IntegerField("Grid Width", default=2)
@@ -74,21 +75,39 @@ def submit_file():
     form = UploadFileForm()
     if form.validate_on_submit():
         with Session() as session:
-            video = db_handler.Video()
+            file_uuid = uuid.uuid4()
+            video = db_handler.Video(
+                id=file_uuid,
+                file_path=str(
+                    VIDEO_STORE
+                    / (
+                        file_uuid.hex
+                        + "."
+                        + "".join(
+                            filter(
+                                lambda x: x in "0123456789abcdefghijklmnopqrstuvwxyz",
+                                form.file.data.filename.split(".")[-1].lower(),
+                            )
+                        )
+                    )
+                ),
+            )
             session.add(video)
             session.commit()
 
-            video_path = VIDEO_STORE / video.id.hex
+            video_path = video.file_path
             form.file.data.save(video_path)
 
-            return flask.redirect(flask.url_for("video_file", video_id=video.id.hex))
+            return flask.url_for("video_file", video_id=video.id.hex)
 
-    return "Data is not valid", 400
+    return "Data is not valid: " + str(form.errors), 400
 
 
 @app.route("/video/<path:video_id>")
 def video_file(video_id):
-    return flask.render_template("video.html.j2", video_id=video_id, form=NewJobForm())
+    return flask.render_template(
+        "video.html.j2", video_id=video_id, form=NewJobForm(video_id=video_id)
+    )
 
 
 @app.route("/submit_job", methods=["POST"])
@@ -117,4 +136,6 @@ def submit_job():
         if form.frame_number_y_offset.data:
             options["frame_number_y_offset"] = form.frame_number_y_offset.data
 
-    return flask.render_template("new_job.html.j2", form=form)
+    return flask.redirect(
+        flask.url_for("job_status.html.j2", video_id=form.video_id.data)
+    )

@@ -13,6 +13,7 @@ class Video(Base):
     id = sqlalchemy.Column(
         sqlalchemy.UUID, primary_key=True, default=uuid.uuid4, unique=True
     )
+    file_path = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     created = sqlalchemy.Column(
         sqlalchemy.DateTime, nullable=False, default=sqlalchemy.func.now()
     )
