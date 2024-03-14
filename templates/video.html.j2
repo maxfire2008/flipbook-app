@@ -1,0 +1,14 @@
+{% extends "base.html.j2" %}
+{% block content %}
+    <h1>Submit a new job</h1>
+    <form method=POST action='{{ url_for("submit_job") }}'>
+        {% for field in form %}
+            <p>
+                {% if field.name != "csrf_token" %}{{ field.label() }}{% endif %}
+                {{ field() }}
+            </p>
+        {% endfor %}
+        <input type="submit" value="Submit">
+        <p>† determined automatically if left blank</p>
+    </form>
+{% endblock %}

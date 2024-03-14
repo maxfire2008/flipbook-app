@@ -1,7 +1,9 @@
 {% extends "base.html.j2" %}
 {% block content %}
-    <h1>Submit a new job</h1>
-    <form method="POST" action='{{ url_for("submit_job") }}'>
+    <h1>Upload a new file</h1>
+    <form action='{{ url_for("submit_file") }}'
+          method="POST"
+          enctype="multipart/form-data">
         {% for field in form %}
             <p>
                 {% if field.name != "csrf_token" %}{{ field.label() }}{% endif %}
@@ -9,6 +11,5 @@
             </p>
         {% endfor %}
         <input type="submit" value="Submit">
-        <p>† determined automatically if left blank</p>
     </form>
 {% endblock %}
