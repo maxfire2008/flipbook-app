@@ -25,10 +25,10 @@ class PDFJob(Base):
     id = sqlalchemy.Column(
         sqlalchemy.UUID, primary_key=True, default=uuid.uuid4, unique=True
     )
-    video_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey("videos.id"))
+    video_id = sqlalchemy.Column(sqlalchemy.UUID, sqlalchemy.ForeignKey("videos.id"))
     video = sqlalchemy.orm.relationship("Video")
     path = sqlalchemy.Column(sqlalchemy.String)
-    options = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    options = sqlalchemy.Column(sqlalchemy.JSON, nullable=False)
     status = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="pending")
     error = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     created = sqlalchemy.Column(

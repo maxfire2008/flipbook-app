@@ -58,8 +58,8 @@ def video_to_flipbook(video_path, pdf_path, options=None):
     font_style = options.get("font_style", "")
     font_size = options.get("font_size", 8)
 
-    frame_number_x_offset = options.get("frame_number_x_offset", -(gap_between_x * 0.9))
-    frame_number_y_offset = options.get("frame_number_y_offset", image_height / 2)
+    frame_number_x_offset = options.get("frame_number_x_offset", -9)
+    frame_number_y_offset = options.get("frame_number_y_offset", 30)
 
     frame_order = options.get("frame_order", "vertical_first")
     framerate = options.get("framerate", "5")

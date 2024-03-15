@@ -27,10 +27,8 @@ def do_job():
         pdf_path = pathlib.Path(job.path)
         options = job.options
 
-    video_to_flipbook.video_to_flipbook(video_path, pdf_path, options)
+        video_to_flipbook.video_to_flipbook(video_path, pdf_path, options)
 
-    # mark the job as finished
-    with db_handler.Session() as session:
         job.status = "finished"
         session.commit()
 

@@ -35,21 +35,68 @@ class UploadFileForm(flask_wtf.FlaskForm):
 
 class NewJobForm(flask_wtf.FlaskForm):
     video_id = wtforms.HiddenField("")
-    page_width = wtforms.IntegerField("Page Width", default=210)
-    page_height = wtforms.IntegerField("Page Height", default=297)
-    grid_width = wtforms.IntegerField("Grid Width", default=2)
-    grid_height = wtforms.IntegerField("Grid Height", default=4)
-    image_width = wtforms.IntegerField("Image Width", default=80)
-    image_height = wtforms.IntegerField("Image Height", default=60)
-    margin_left = wtforms.IntegerField("Margin Left", default=20)
-    margin_top = wtforms.IntegerField("Margin Top", default=28)
-    gap_between_x = wtforms.IntegerField("Gap Between X", default=10)
-    gap_between_y = wtforms.IntegerField("Gap Between Y", default=0)
-    font_family = wtforms.StringField("Font Family", default="Times")
-    font_style = wtforms.StringField("Font Style", default="")
-    font_size = wtforms.IntegerField("Font Size", default=8)
-    frame_number_x_offset = wtforms.IntegerField("Frame Number X Offset †", default="")
-    frame_number_y_offset = wtforms.IntegerField("Frame Number Y Offset †", default="")
+    page_width = wtforms.FloatField(
+        "Page Width", default=210, validators=[wtforms.validators.NumberRange(min=0)]
+    )
+    page_height = wtforms.FloatField(
+        "Page Height", default=297, validators=[wtforms.validators.NumberRange(min=0)]
+    )
+    grid_width = wtforms.FloatField(
+        "Grid Width", default=2, validators=[wtforms.validators.NumberRange(min=0)]
+    )
+    grid_height = wtforms.FloatField(
+        "Grid Height", default=4, validators=[wtforms.validators.NumberRange(min=0)]
+    )
+    image_width = wtforms.FloatField(
+        "Image Width", default=80, validators=[wtforms.validators.NumberRange(min=0)]
+    )
+    image_height = wtforms.FloatField(
+        "Image Height", default=60, validators=[wtforms.validators.NumberRange(min=0)]
+    )
+    margin_left = wtforms.FloatField(
+        "Margin Left", default=20, validators=[wtforms.validators.NumberRange()]
+    )
+    margin_top = wtforms.FloatField(
+        "Margin Top", default=28, validators=[wtforms.validators.NumberRange()]
+    )
+    gap_between_x = wtforms.FloatField(
+        "Gap Between X", default=10, validators=[wtforms.validators.NumberRange()]
+    )
+    gap_between_y = wtforms.FloatField(
+        "Gap Between Y", default=0, validators=[wtforms.validators.NumberRange()]
+    )
+    font_family = wtforms.StringField(
+        "Font Family",
+        default="Times",
+        validators=[
+            wtforms.validators.AnyOf(
+                [
+                    "Arial",
+                    "Courier",
+                    "Helvetica",
+                    "Symbol",
+                    "Times",
+                    "ZapfDingbats",
+                ]
+            )
+        ],
+    )
+    font_style = wtforms.StringField(
+        "Font Style", default="", validators=[wtforms.validators.Regexp(r"^[BIU]*$")]
+    )
+    font_size = wtforms.FloatField(
+        "Font Size", default=8, validators=[wtforms.validators.NumberRange(min=0)]
+    )
+    frame_number_x_offset = wtforms.FloatField(
+        "Frame Number X Offset †",
+        default=-9,
+        validators=[wtforms.validators.NumberRange()],
+    )
+    frame_number_y_offset = wtforms.FloatField(
+        "Frame Number Y Offset †",
+        default=30,
+        validators=[wtforms.validators.NumberRange()],
+    )
     frame_order = wtforms.SelectField(
         "Frame Order",
         choices=[
@@ -58,7 +105,11 @@ class NewJobForm(flask_wtf.FlaskForm):
         ],
         default="vertical_first",
     )
-    framerate = wtforms.IntegerField("Framerate", default=5)
+    framerate = wtforms.StringField(
+        "Framerate",
+        default="5",
+        validators=[wtforms.validators.Regexp(r"^\d+(/\d+)?$")],
+    )
 
 
 @app.route("/")
@@ -127,16 +178,14 @@ def submit_job():
             "font_family": form.font_family.data,
             "font_style": form.font_style.data,
             "font_size": form.font_size.data,
+            "frame_number_x_offset": form.frame_number_x_offset.data,
+            "frame_number_y_offset": form.frame_number_y_offset.data,
             "frame_order": form.frame_order.data,
             "framerate": form.framerate.data,
         }
-        if form.frame_number_x_offset.data:
-            options["frame_number_x_offset"] = form.frame_number_x_offset.data
-        if form.frame_number_y_offset.data:
-            options["frame_number_y_offset"] = form.frame_number_y_offset.data
 
         with db_handler.Session() as session:
-            video = session.query(db_handler.Video).get(form.video_id.data)
+            video = session.query(db_handler.Video).get(uuid.UUID(form.video_id.data))
             pdf_uuid = uuid.uuid4()
             pdf = db_handler.PDFJob(
                 id=pdf_uuid,
@@ -147,13 +196,16 @@ def submit_job():
             session.add(pdf)
             session.commit()
 
-            return flask.url_for("job", pdf_id=pdf.id.hex)
+            return flask.redirect(flask.url_for("job", pdf_id=pdf.id.hex))
 
+    print(form.errors)
     return flask.redirect(flask.url_for("video_file", video_id=form.video_id.data))
 
 
 @app.route("/job/<path:pdf_id>")
 def job(pdf_id):
     with db_handler.Session() as session:
-        pdf = session.query(db_handler.PDFJob).get(pdf_id)
-        return flask.render_template("job.html.j2", pdf=pdf)
+        return flask.render_template(
+            "job.html.j2",
+            job=session.query(db_handler.PDFJob).get(uuid.UUID(pdf_id)),
+        )
