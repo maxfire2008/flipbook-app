@@ -15,10 +15,6 @@ app = flask.Flask(__name__)
 app.secret_key = os.urandom(128)
 app.jinja_env.autoescape = False
 
-engine = sqlalchemy.create_engine("sqlite:///db.sqlite3")
-Session = sqlalchemy.orm.sessionmaker(bind=engine)
-
-db_handler.Base.metadata.create_all(engine)
 
 VIDEO_STORE = pathlib.Path("videos")
 PDF_STORE = pathlib.Path("pdfs")
@@ -74,28 +70,31 @@ def upload_file():
 def submit_file():
     form = UploadFileForm()
     if form.validate_on_submit():
-        with Session() as session:
+        with db_handler.Session() as session:
             file_uuid = uuid.uuid4()
             video = db_handler.Video(
                 id=file_uuid,
-                file_path=str(
-                    VIDEO_STORE
-                    / (
-                        file_uuid.hex
-                        + "."
-                        + "".join(
-                            filter(
-                                lambda x: x in "0123456789abcdefghijklmnopqrstuvwxyz",
-                                form.file.data.filename.split(".")[-1].lower(),
+                path=str(
+                    (
+                        VIDEO_STORE
+                        / (
+                            file_uuid.hex
+                            + "."
+                            + "".join(
+                                filter(
+                                    lambda x: x
+                                    in "0123456789abcdefghijklmnopqrstuvwxyz",
+                                    form.file.data.filename.split(".")[-1].lower(),
+                                )
                             )
                         )
-                    )
+                    ).absolute()
                 ),
             )
             session.add(video)
             session.commit()
 
-            video_path = video.file_path
+            video_path = video.path
             form.file.data.save(video_path)
 
             return flask.url_for("video_file", video_id=video.id.hex)
@@ -136,6 +135,25 @@ def submit_job():
         if form.frame_number_y_offset.data:
             options["frame_number_y_offset"] = form.frame_number_y_offset.data
 
-    return flask.redirect(
-        flask.url_for("job_status.html.j2", video_id=form.video_id.data)
-    )
+        with db_handler.Session() as session:
+            video = session.query(db_handler.Video).get(form.video_id.data)
+            pdf_uuid = uuid.uuid4()
+            pdf = db_handler.PDFJob(
+                id=pdf_uuid,
+                video_id=video.id,
+                path=str((PDF_STORE / (pdf_uuid.hex + ".pdf")).absolute()),
+                options=options,
+            )
+            session.add(pdf)
+            session.commit()
+
+            return flask.url_for("job", pdf_id=pdf.id.hex)
+
+    return flask.redirect(flask.url_for("video_file", video_id=form.video_id.data))
+
+
+@app.route("/job/<path:pdf_id>")
+def job(pdf_id):
+    with db_handler.Session() as session:
+        pdf = session.query(db_handler.PDFJob).get(pdf_id)
+        return flask.render_template("job.html.j2", pdf=pdf)

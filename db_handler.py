@@ -13,7 +13,7 @@ class Video(Base):
     id = sqlalchemy.Column(
         sqlalchemy.UUID, primary_key=True, default=uuid.uuid4, unique=True
     )
-    file_path = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    path = sqlalchemy.Column(sqlalchemy.String)
     created = sqlalchemy.Column(
         sqlalchemy.DateTime, nullable=False, default=sqlalchemy.func.now()
     )
@@ -26,10 +26,17 @@ class PDFJob(Base):
         sqlalchemy.UUID, primary_key=True, default=uuid.uuid4, unique=True
     )
     video_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey("videos.id"))
-    pdf_path = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    video = sqlalchemy.orm.relationship("Video")
+    path = sqlalchemy.Column(sqlalchemy.String)
     options = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     status = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="pending")
     error = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     created = sqlalchemy.Column(
         sqlalchemy.DateTime, nullable=False, default=sqlalchemy.func.now()
     )
+
+
+engine = sqlalchemy.create_engine("sqlite:///db.sqlite3")
+Session = sqlalchemy.orm.sessionmaker(bind=engine)
+
+Base.metadata.create_all(engine)
