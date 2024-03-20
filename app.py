@@ -1,12 +1,12 @@
 import os
 import uuid
+import yaml
 
 import flask
 import flask_wtf
 import flask_wtf.file
 import wtforms
 import wtforms.validators
-import sqlalchemy
 import pathlib
 
 import db_handler
@@ -14,6 +14,9 @@ import db_handler
 app = flask.Flask(__name__)
 app.secret_key = os.urandom(128)
 app.jinja_env.autoescape = False
+
+with open("config.yaml", "r") as f:
+    CONFIG = yaml.load(f)
 
 
 VIDEO_STORE = pathlib.Path("videos")
@@ -110,6 +113,22 @@ class NewJobForm(flask_wtf.FlaskForm):
         default="5",
         validators=[wtforms.validators.Regexp(r"^\d+(/\d+)?$")],
     )
+
+
+def authenticate():
+    token = flask.request.cookies.get("token", None)
+    if token is not None:
+        # search for token in database
+        with db_handler.Session() as session:
+            web_session = (
+                session.query(db_handler.WebSession)
+                .filter(db_handler.WebSession.token == token)
+                .first()
+            )
+            if web_session is not None:
+                return {"domain": web_session.domain, "expires": web_session.expires}
+    else:
+        pass
 
 
 @app.route("/")

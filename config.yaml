@@ -1,0 +1,4 @@
+domains:
+  ths: 147.41.128.38
+authorized_proxies:
+  - 127.0.0.1

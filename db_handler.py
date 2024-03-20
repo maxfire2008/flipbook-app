@@ -1,4 +1,6 @@
 import uuid
+import os
+import datetime
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -33,6 +35,23 @@ class PDFJob(Base):
     output = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     created = sqlalchemy.Column(
         sqlalchemy.DateTime, nullable=False, default=sqlalchemy.func.now()
+    )
+
+
+class WebSession(Base):
+    __tablename__ = "web_sessions"
+
+    id = sqlalchemy.Column(
+        sqlalchemy.Integer, primary_key=True, autoincrement=True, unique=True
+    )
+    token = sqlalchemy.Column(
+        sqlalchemy.String, nullable=False, default=os.urandom(128).hex()
+    )
+    domain = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    expires = sqlalchemy.Column(
+        sqlalchemy.DateTime,
+        nullable=False,
+        default=datetime.datetime.now() + datetime.timedelta(days=7),
     )
 
 
