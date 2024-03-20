@@ -16,7 +16,7 @@ app.secret_key = os.urandom(128)
 app.jinja_env.autoescape = False
 
 with open("config.yaml", "r") as f:
-    CONFIG = yaml.load(f)
+    CONFIG = yaml.safe_load(f)
 
 
 VIDEO_STORE = pathlib.Path("videos")
