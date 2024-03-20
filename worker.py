@@ -1,9 +1,29 @@
 import datetime
 import pathlib
 import time
+import signal
+import contextlib
+
 
 import db_handler
 import video_to_flipbook
+
+
+class TimeoutException(Exception):
+    pass
+
+
+@contextlib.contextmanager
+def time_limit(seconds):
+    def signal_handler(signum, frame):
+        raise TimeoutException("Timed out!")
+
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
 
 
 def do_job():
@@ -27,10 +47,21 @@ def do_job():
         pdf_path = pathlib.Path(job.path)
         options = job.options
 
-        video_to_flipbook.video_to_flipbook(video_path, pdf_path, options)
-
-        job.status = "finished"
-        session.commit()
+        try:
+            with time_limit(15):
+                s_time = time.time()
+                for currently_processing in video_to_flipbook.video_to_flipbook(
+                    video_path, pdf_path, options
+                ):
+                    job.status = "processing_" + currently_processing
+                    session.commit()
+                e_time = time.time()
+                job.status = "finished"
+                job.output = f"Processing took {round(e_time - s_time, 2)} seconds"
+                session.commit()
+        except TimeoutException:
+            job.status = "timeout"
+            session.commit()
 
 
 def clear_old_files():

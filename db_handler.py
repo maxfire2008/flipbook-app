@@ -30,7 +30,7 @@ class PDFJob(Base):
     path = sqlalchemy.Column(sqlalchemy.String)
     options = sqlalchemy.Column(sqlalchemy.JSON, nullable=False)
     status = sqlalchemy.Column(sqlalchemy.String, nullable=False, default="pending")
-    error = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    output = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     created = sqlalchemy.Column(
         sqlalchemy.DateTime, nullable=False, default=sqlalchemy.func.now()
     )

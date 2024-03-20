@@ -67,8 +67,10 @@ def video_to_flipbook(video_path, pdf_path, options=None):
     pdf = fpdf.FPDF(orientation="P", unit="mm", format=(page_width, page_height))
     pdf.set_font(font_family, font_style, font_size)
 
+    yield "extracting_frames"
     images_path = extract_images(video_path, framerate)
 
+    yield "pdf"
     for i, image in enumerate(sorted(images_path.glob("*.jpeg"))):
         page_index = i % (grid_width * grid_height)
         if frame_order == "vertical_first":
@@ -91,6 +93,7 @@ def video_to_flipbook(video_path, pdf_path, options=None):
         )
         pdf.image(str(image), x=x_position, y=y_position, w=image_width, h=image_height)
 
+    yield "output"
     pdf.output(pdf_path)
 
     shutil.rmtree(images_path)

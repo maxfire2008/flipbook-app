@@ -209,3 +209,14 @@ def job(pdf_id):
             "job.html.j2",
             job=session.query(db_handler.PDFJob).get(uuid.UUID(pdf_id)),
         )
+
+
+@app.route("/pdf/<path:pdf_id>")
+def pdf_file(pdf_id):
+    with db_handler.Session() as session:
+        job = session.query(db_handler.PDFJob).get(uuid.UUID(pdf_id))
+        return flask.send_file(
+            job.path,
+            as_attachment=flask.request.args.get("download", "false") == "true",
+            download_name="flipbook_" + pdf_id + ".pdf",
+        )

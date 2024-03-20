@@ -1,5 +1,20 @@
 {% extends "base.html.j2" %}
 {% block content %}
     <h1>Your job</h1>
-    <p>{{ job.status }}</p>
+    <p>Status: {{ job.status }}</p>
+    <p>Output: {{ job.output }}</p>
+    <p>
+        <a href="/video/{{ job.video.id }}">Create another with the same video</a>
+    </p>
+    <p>
+        <a href="/pdf/{{ job.id }}?download=true">Download PDF</a>
+    </p>
+    {% if job.status == "finished" %}
+        <embed src="/pdf/{{ job.id }}"
+               width="800"
+               height="1000"
+               type='application/pdf'>
+    {% else %}
+        <p>Job is pending, please refresh this page to see an updated status.</p>
+    {% endif %}
 {% endblock %}
