@@ -1,6 +1,8 @@
+import datetime
 import os
 import uuid
 import yaml
+import ipaddress
 
 import flask
 import flask_wtf
@@ -12,11 +14,13 @@ import pathlib
 import db_handler
 
 app = flask.Flask(__name__)
-app.secret_key = os.urandom(128)
 app.jinja_env.autoescape = False
 
 with open("config.yaml", "r") as f:
     CONFIG = yaml.safe_load(f)
+
+
+app.secret_key = CONFIG["secret_key"]
 
 
 VIDEO_STORE = pathlib.Path("videos")
@@ -125,19 +129,60 @@ def authenticate():
                 .filter(db_handler.WebSession.token == token)
                 .first()
             )
-            if web_session is not None:
+            print(
+                f"{web_session!r} is not None and {web_session.expires!r} < {datetime.datetime.now()!r}"
+            )
+            print(
+                f"{web_session is not None} and {web_session.expires < datetime.datetime.now()}"
+            )
+            if (
+                web_session is not None
+                and web_session.expires > datetime.datetime.now()
+            ):
+                web_session.expires = datetime.datetime.now() + datetime.timedelta(
+                    days=7
+                )
                 return {"domain": web_session.domain, "expires": web_session.expires}
     else:
-        pass
+        remote_ip = flask.request.remote_addr
+        if remote_ip in CONFIG["authorized_proxies"]:
+            remote_ip = flask.request.headers.get("X-Forwarded-For", remote_ip)
+
+        authorized_by = []
+        for k, v in CONFIG["domains"].items():
+            if ipaddress.ip_address(remote_ip) in ipaddress.ip_network(v):
+                authorized_by.append(k)
+
+        if len(authorized_by) > 0:
+            with db_handler.Session() as session:
+                new_session = db_handler.WebSession(domain=",".join(authorized_by))
+                session.add(new_session)
+                session.commit()
+
+                return {
+                    "domain": new_session.domain,
+                    "expires": new_session.expires,
+                    "token": new_session.token,
+                }
 
 
 @app.route("/")
 def upload_file():
-    return flask.render_template("upload_file.html.j2", form=UploadFileForm())
+    authentication = authenticate()
+    if authentication is not None:
+        response = flask.make_response(
+            flask.render_template("upload_file.html.j2", form=UploadFileForm())
+        )
+        if "token" in authentication:
+            response.set_cookie("token", authentication["token"])
+        return response
+    return "403", 403
 
 
 @app.route("/submit_file", methods=["POST"])
 def submit_file():
+    if authenticate() is None:
+        return "403", 403
     form = UploadFileForm()
     if form.validate_on_submit():
         with db_handler.Session() as session:

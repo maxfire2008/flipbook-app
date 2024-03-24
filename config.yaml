@@ -1,4 +1,6 @@
 domains:
   ths: 147.41.128.38
+  lcl: 127.0.0.1
 authorized_proxies:
   - 127.0.0.1
+secret_key: g2d6NRkg7LucNz24cvtH9E4Cqsjqd8sHBtXKZQRaidYE2fWdu6iundBHLUQ6btZp
