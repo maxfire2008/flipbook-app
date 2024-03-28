@@ -4,7 +4,7 @@
     <p>Status: {{ job.status }}</p>
     <p>Output: {{ job.output }}</p>
     <p>
-        <a href="/video/{{ job.video.id }}">Create another with the same video</a>
+        <a href="/video/{{ job.video.id }}?copy={{ job.id }}">Create another with the same video</a>
     </p>
     <p>
         <a href="/pdf/{{ job.id }}?download=true">Download PDF</a>

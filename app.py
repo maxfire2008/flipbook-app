@@ -120,10 +120,10 @@ class NewJobForm(flask_wtf.FlaskForm):
 
 
 def authenticate():
-    token = flask.request.cookies.get("token", None)
-    if token is not None:
-        # search for token in database
-        with db_handler.Session() as session:
+    with db_handler.Session() as session:
+        token = flask.request.cookies.get("token", None)
+        if token is not None:
+            # search for token in database
             web_session = (
                 session.query(db_handler.WebSession)
                 .filter(db_handler.WebSession.token == token)
@@ -139,11 +139,13 @@ def authenticate():
                 web_session is not None
                 and web_session.expires > datetime.datetime.now()
             ):
-                web_session.expires = datetime.datetime.now() + datetime.timedelta(
-                    days=7
-                )
-                return {"domain": web_session.domain, "expires": web_session.expires}
-    else:
+                current_domain = web_session.domain
+            else:
+                current_domain = None
+        else:
+            web_session = None
+            current_domain = None
+
         remote_ip = flask.request.remote_addr
         if remote_ip in CONFIG["authorized_proxies"]:
             remote_ip = flask.request.headers.get("X-Forwarded-For", remote_ip)
@@ -154,7 +156,20 @@ def authenticate():
                 authorized_by.append(k)
 
         if len(authorized_by) > 0:
-            with db_handler.Session() as session:
+            if current_domain is not None and current_domain == ",".join(authorized_by):
+                web_session.expires = datetime.datetime.now() + datetime.timedelta(
+                    days=7
+                )
+                session.commit()
+                return {
+                    "domain": web_session.domain,
+                    "expires": web_session.expires,
+                    "on_network": True,
+                }
+            else:
+                if current_domain is not None:
+                    web_session.expires = datetime.datetime.now()
+
                 new_session = db_handler.WebSession(domain=",".join(authorized_by))
                 session.add(new_session)
                 session.commit()
@@ -163,26 +178,57 @@ def authenticate():
                     "domain": new_session.domain,
                     "expires": new_session.expires,
                     "token": new_session.token,
+                    "on_network": True,
                 }
+        elif current_domain is not None:
+            return {
+                "domain": web_session.domain,
+                "expires": web_session.expires,
+            }
+
+
+def authenticated(func):
+    def wrap_authentication(*args, **kwargs):
+        authentication = authenticate()
+        print(authentication)
+        if authentication:
+            response = func(*args, **kwargs)
+            if isinstance(response, str):
+                flask_response = flask.make_response(response)
+                
+                if authentication.get("on_network"):
+                    auth_text = f"Authorized by {authentication.get("domain")}"
+                else:
+                    auth_text = f"Your current authorization belongs to {authentication.get("domain")} and expires at {authentication.get("expires")}."
+
+                flask_response.set_data(
+                    flask_response.get_data().replace(
+                        b"##authorization_message##", auth_text.encode()
+                    )
+                )
+
+                if "token" in authentication:
+                    flask_response.set_cookie("token", authentication["token"])
+                return flask_response
+            else:
+                return response
+        else:
+            return "403 NOT AUTHORIZED", 403
+    
+    wrap_authentication.__name__ = func.__name__
+
+    return wrap_authentication
 
 
 @app.route("/")
+@authenticated
 def upload_file():
-    authentication = authenticate()
-    if authentication is not None:
-        response = flask.make_response(
-            flask.render_template("upload_file.html.j2", form=UploadFileForm())
-        )
-        if "token" in authentication:
-            response.set_cookie("token", authentication["token"])
-        return response
-    return "403", 403
+    return flask.render_template("upload_file.html.j2", form=UploadFileForm())
 
 
 @app.route("/submit_file", methods=["POST"])
+@authenticated
 def submit_file():
-    if authenticate() is None:
-        return "403", 403
     form = UploadFileForm()
     if form.validate_on_submit():
         with db_handler.Session() as session:
@@ -218,13 +264,23 @@ def submit_file():
 
 
 @app.route("/video/<path:video_id>")
+@authenticated
 def video_file(video_id):
+    copy_id = flask.request.args.get("copy")
+
+    form=NewJobForm(video_id=video_id)
+
+    if copy_id:
+        with db_handler.Session() as session:
+            copy_options = session.query(db_handler.PDFJob).get(uuid.UUID(copy_id)).options
+
     return flask.render_template(
-        "video.html.j2", video_id=video_id, form=NewJobForm(video_id=video_id)
+        "video.html.j2", video_id=video_id, form=form
     )
 
 
 @app.route("/submit_job", methods=["POST"])
+@authenticated
 def submit_job():
     form = NewJobForm()
     if form.validate_on_submit():
@@ -262,11 +318,11 @@ def submit_job():
 
             return flask.redirect(flask.url_for("job", pdf_id=pdf.id.hex))
 
-    print(form.errors)
     return flask.redirect(flask.url_for("video_file", video_id=form.video_id.data))
 
 
 @app.route("/job/<path:pdf_id>")
+@authenticated
 def job(pdf_id):
     with db_handler.Session() as session:
         return flask.render_template(
@@ -274,8 +330,8 @@ def job(pdf_id):
             job=session.query(db_handler.PDFJob).get(uuid.UUID(pdf_id)),
         )
 
-
 @app.route("/pdf/<path:pdf_id>")
+@authenticated
 def pdf_file(pdf_id):
     with db_handler.Session() as session:
         job = session.query(db_handler.PDFJob).get(uuid.UUID(pdf_id))
