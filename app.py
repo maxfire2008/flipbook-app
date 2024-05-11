@@ -186,20 +186,21 @@ def authenticate():
                 "expires": web_session.expires,
             }
 
+    print("No authentication for IP address", remote_ip)
+
 
 def authenticated(func):
     def wrap_authentication(*args, **kwargs):
         authentication = authenticate()
-        print(authentication)
         if authentication:
             response = func(*args, **kwargs)
             if isinstance(response, str):
                 flask_response = flask.make_response(response)
-                
+
                 if authentication.get("on_network"):
-                    auth_text = f"Authorized by {authentication.get("domain")}"
+                    auth_text = f"Authorized by {authentication.get('domain')}"
                 else:
-                    auth_text = f"Your current authorization belongs to {authentication.get("domain")} and expires at {authentication.get("expires")}."
+                    auth_text = f"Your current authorization belongs to {authentication.get('domain')} and expires at {authentication.get('expires')}."
 
                 flask_response.set_data(
                     flask_response.get_data().replace(
@@ -214,7 +215,7 @@ def authenticated(func):
                 return response
         else:
             return "403 NOT AUTHORIZED", 403
-    
+
     wrap_authentication.__name__ = func.__name__
 
     return wrap_authentication
@@ -268,15 +269,15 @@ def submit_file():
 def video_file(video_id):
     copy_id = flask.request.args.get("copy")
 
-    form=NewJobForm(video_id=video_id)
+    form = NewJobForm(video_id=video_id)
 
     if copy_id:
         with db_handler.Session() as session:
-            copy_options = session.query(db_handler.PDFJob).get(uuid.UUID(copy_id)).options
+            copy_options = (
+                session.query(db_handler.PDFJob).get(uuid.UUID(copy_id)).options
+            )
 
-    return flask.render_template(
-        "video.html.j2", video_id=video_id, form=form
-    )
+    return flask.render_template("video.html.j2", video_id=video_id, form=form)
 
 
 @app.route("/submit_job", methods=["POST"])
@@ -329,6 +330,7 @@ def job(pdf_id):
             "job.html.j2",
             job=session.query(db_handler.PDFJob).get(uuid.UUID(pdf_id)),
         )
+
 
 @app.route("/pdf/<path:pdf_id>")
 @authenticated
